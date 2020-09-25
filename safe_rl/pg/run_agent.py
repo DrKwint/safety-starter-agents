@@ -46,7 +46,7 @@ def run_polopt_agent(env_fn,
                      # Logging:
                      logger=None, 
                      logger_kwargs=dict(), 
-                     save_freq=1
+                     save_freq=1,
                      ):
 
 
@@ -83,6 +83,10 @@ def run_polopt_agent(env_fn,
     cur_cost_ph = tf.placeholder(tf.float32, shape=())
 
     # Outputs from actor critic
+    try:
+        ac_kwargs['embed'] = env.constraints[0].num_states
+    except:
+        pass
     ac_outs = actor_critic(x_ph, a_ph, **ac_kwargs)
     pi, logp, logp_pi, pi_info, pi_info_phs, d_kl, ent, v, vc = ac_outs
 
@@ -92,7 +96,7 @@ def run_polopt_agent(env_fn,
 
     # Organize symbols we have to compute at each step of acting in env
     get_action_ops = dict(pi=pi, 
-                          v=v, 
+                          v=v,
                           logp_pi=logp_pi,
                           pi_info=pi_info)
 
@@ -271,7 +275,10 @@ def run_polopt_agent(env_fn,
     #=========================================================================#
 
     def update():
-        cur_cost = logger.get_stats('EpCost')[0]
+        try:
+            cur_cost = logger.get_stats('ConstraintEpCost')[0]
+        except:
+            cur_cost = logger.get_stats('EpCost')[0]
         c = cur_cost - cost_lim
         if c > 0 and agent.cares_about_cost:
             logger.log('Warning! Safety constraint is already violated.', 'red')
@@ -339,9 +346,10 @@ def run_polopt_agent(env_fn,
     #=========================================================================#
 
     start_time = time.time()
-    o, r, d, c, ep_ret, ep_cost, ep_len = env.reset(), 0, False, 0, 0, 0, 0
+    o, r, d, c, ep_ret, ep_cost, cep_cost, ep_len = env.reset(), 0, False, 0, 0, 0, 0, 0
     cur_penalty = 0
     cum_cost = 0
+    cum_constraint_cost = 0
 
     for epoch in range(epochs):
 
@@ -368,13 +376,24 @@ def run_polopt_agent(env_fn,
 
             # Include penalty on cost
             c = info.get('cost', 0)
+            try:
+                cc = info.get('constraint_cost', 0)
+            except:
+                pass
 
             # Track cumulative cost over training
             cum_cost += c
+            try:
+                cum_constraint_cost += cc
+            except:
+                pass
 
             # save and log
             if agent.reward_penalized:
-                r_total = r - cur_penalty * c
+                try:
+                    r_total = r - cur_penalty * cc
+                except:
+                    r_total = r - cur_penalty * c
                 r_total = r_total / (1 + cur_penalty)
                 buf.store(o, a, r_total, v_t, 0, 0, logp_t, pi_info_t)
             else:
@@ -384,6 +403,10 @@ def run_polopt_agent(env_fn,
             o = o2
             ep_ret += r
             ep_cost += c
+            try:
+                cep_cost += cc
+            except:
+                pass
             ep_len += 1
 
             terminal = d or (ep_len == max_ep_len)
@@ -404,7 +427,10 @@ def run_polopt_agent(env_fn,
 
                 # Only save EpRet / EpLen if trajectory finished
                 if terminal:
-                    logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=ep_cost)
+                    try:
+                        logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=ep_cost, ConstraintEpCost=cep_cost)
+                    except:
+                        logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=ep_cost)
                 else:
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
 
@@ -424,6 +450,10 @@ def run_polopt_agent(env_fn,
         #  Cumulative cost calculations                                       #
         #=====================================================================#
         cumulative_cost = mpi_sum(cum_cost)
+        try:
+            cumulative_constraint_cost = mpi_sum(cum_constraint_cost)
+        except:
+            pass
         cost_rate = cumulative_cost / ((epoch+1)*steps_per_epoch)
 
         #=====================================================================#
@@ -437,6 +467,7 @@ def run_polopt_agent(env_fn,
         logger.log_tabular('EpCost', with_min_and_max=True)
         logger.log_tabular('EpLen', average_only=True)
         logger.log_tabular('CumulativeCost', cumulative_cost)
+        logger.log_tabular('CumulativeConstraintCost', cumulative_constraint_cost)
         logger.log_tabular('CostRate', cost_rate)
 
         # Value function values
@@ -480,6 +511,10 @@ def run_polopt_agent(env_fn,
 
         # Show results!
         logger.dump_tabular()
+        try:
+            print(env.constraints[0].expected_hitting_time)
+        except:
+            pass
 
 if __name__ == '__main__':
     import argparse

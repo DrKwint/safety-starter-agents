@@ -161,7 +161,7 @@ def mlp_squashed_gaussian_policy(x, a, hidden_sizes, activation, output_activati
 Actor-Critics
 """
 def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh,
-                     output_activation=None, policy=None, action_space=None):
+                     output_activation=None, policy=None, action_space=None, embed=0):
 
     # default policy builder depends on action space
     if policy is None and isinstance(action_space, Box):
@@ -170,13 +170,28 @@ def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh,
         policy = mlp_categorical_policy
 
     with tf.variable_scope('pi'):
-        policy_outs = policy(x, a, hidden_sizes, activation, output_activation, action_space)
+        if embed != 0:
+            x_emb = tf.layers.dense(x[:, -embed:], 2, tf.nn.tanh)
+            pi_x = tf.concat([x[:, :-embed], x_emb], -1)
+        else:
+            pi_x = x
+        policy_outs = policy(pi_x, a, hidden_sizes, activation, output_activation, action_space)
         pi, logp, logp_pi, pi_info, pi_info_phs, d_kl, ent = policy_outs
 
     with tf.variable_scope('vf'):
-        v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
+        if embed != 0:
+            x_emb = tf.layers.dense(x[:, -embed:], 2, tf.nn.tanh)
+            vf_x = tf.concat([x[:, :-embed], x_emb], -1)
+        else:
+            vf_x = x
+        v = tf.squeeze(mlp(vf_x, list(hidden_sizes)+[1], activation, None), axis=1)
 
     with tf.variable_scope('vc'):
-        vc = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
+        if embed != 0:
+            x_emb = tf.layers.dense(x[:, -embed:], 2, tf.nn.tanh)
+            vc_x = tf.concat([x[:, :-embed], x_emb], -1)
+        else:
+            vc_x = x
+        vc = tf.squeeze(mlp(vc_x, list(hidden_sizes)+[1], activation, None), axis=1)
 
     return pi, logp, logp_pi, pi_info, pi_info_phs, d_kl, ent, v, vc

@@ -1,12 +1,17 @@
 #!/usr/bin/env python
-import gym 
+import gym
+import pathlib
+from gym.wrappers import FlattenObservation
 import safety_gym
 import safe_rl
 from safe_rl.utils.run_utils import setup_logger_kwargs
 from safe_rl.utils.mpi_tools import mpi_fork
 
+from constraint.constraint_wrapper import ConstraintEnv
+from constraint.constraints.register import get_constraint
 
-def main(robot, task, algo, seed, exp_name, cpu):
+
+def main(robot, task, algo, seed, exp_name, cpu, constraint, use_aug, dense_coeff):
 
     # Verify experiment
     robot_list = ['point', 'car', 'doggo']
@@ -21,7 +26,7 @@ def main(robot, task, algo, seed, exp_name, cpu):
     assert robot.lower() in robot_list, "Invalid robot"
 
     # Hyperparameters
-    exp_name = algo + '_' + robot + task
+    #exp_name = algo + '_' + robot + task
     if robot=='Doggo':
         num_steps = 1e8
         steps_per_epoch = 60000
@@ -38,13 +43,25 @@ def main(robot, task, algo, seed, exp_name, cpu):
 
     # Prepare Logger
     exp_name = exp_name or (algo + '_' + robot.lower() + task.lower())
-    logger_kwargs = setup_logger_kwargs(exp_name, seed)
+    logger_kwargs = setup_logger_kwargs(exp_name, seed, data_dir=str(pathlib.Path('../tests', exp_name)), datestamp=False)
 
     # Algo and Env
     algo = eval('safe_rl.'+algo)
     env_name = 'Safexp-'+robot+task+'-v0'
 
-    algo(env_fn=lambda: gym.make(env_name),
+    def env_fn():
+        env = gym.make(env_name)
+        if constraint != 'none':
+            if use_aug:
+                augmentation_type = 'constraint_state_concat'
+            else:
+                augmentation_type = 'None'
+            use_dense = dense_coeff > 0.
+            env = ConstraintEnv(env, [get_constraint(constraint)(False, use_dense, dense_coeff)], augmentation_type=augmentation_type, log_dir='../tests/'+exp_name)
+        fcenv = FlattenObservation(env)
+        return fcenv
+
+    algo(env_fn=env_fn,
          ac_kwargs=dict(
              hidden_sizes=(256, 256),
             ),
@@ -56,6 +73,7 @@ def main(robot, task, algo, seed, exp_name, cpu):
          seed=seed,
          logger_kwargs=logger_kwargs
          )
+    (pathlib.Path('../data') / exp_name / 'final.txt').touch()
 
 
 
@@ -68,6 +86,9 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--exp_name', type=str, default='')
     parser.add_argument('--cpu', type=int, default=1)
+    parser.add_argument('--constraint', type=str)
+    parser.add_argument('--use_aug', type=bool, default=False)
+    parser.add_argument('--dense_coeff', type=float)
     args = parser.parse_args()
     exp_name = args.exp_name if not(args.exp_name=='') else None
-    main(args.robot, args.task, args.algo, args.seed, exp_name, args.cpu)
+    main(args.robot, args.task, args.algo, args.seed, exp_name, args.cpu, args.constraint, args.use_aug, args.dense_coeff)
