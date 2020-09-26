@@ -10,6 +10,7 @@ import tensorflow as tf
 
 import constraint
 from constraint.bench.step_monitor import LogBuffer
+from constraint.constraint import SoftDenseConstraint
 
 
 class ConstraintEnv(gym.Wrapper):
@@ -105,7 +106,8 @@ class ConstraintEnv(gym.Wrapper):
             self.cost_log.log(info['cost'])
         for c in self.constraints:
             is_vio, rew_mod = c.step(self.prev_obs, action, done)
-            info['constraint_cost'] = info['cost'] + rew_mod
+            if isinstance(c, SoftDenseConstraint):
+                info['constraint_cost'] = info['cost'] + rew_mod
             if self.viol_log_dict is not None:
                 self.viol_log_dict[c].log(is_vio)
                 self.state_log_dict[c].log(c.current_state)

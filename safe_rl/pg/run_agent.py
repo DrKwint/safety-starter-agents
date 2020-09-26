@@ -85,6 +85,8 @@ def run_polopt_agent(env_fn,
     # Outputs from actor critic
     try:
         ac_kwargs['embed'] = env.constraints[0].num_states
+        if env.augmentation_type != 'constraint_state_concat':
+            ac_kwargs['embed'] = 0
     except:
         pass
     ac_outs = actor_critic(x_ph, a_ph, **ac_kwargs)

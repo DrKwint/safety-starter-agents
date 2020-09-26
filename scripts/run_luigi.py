@@ -26,8 +26,6 @@ class TrainTask(luigi.Task):
         exp_name += '-' + str(self.seed)
         return exp_name
 
-    def get_output_dir(self):
-        return os.path.join('../tests', self.get_exp_name())
 
     def run(self):
         cmd_str = 'python experiment.py'
@@ -39,14 +37,13 @@ class TrainTask(luigi.Task):
             cmd_str += ' --use_aug ' + str(self.use_aug)
         cmd_str += ' --dense_coeff ' + str(self.dense_coefficient)
         cmd_str += ' --seed ' + str(self.seed)
-        cmd_str += ' --cpu 2'
+        cmd_str += ' --cpu 6'
         cmd_str += ' --exp_name ' + self.get_exp_name()
         print(cmd_str)
         output = subprocess.check_output(cmd_str.split(' '))
     
-    def output(self):
-        return luigi.LocalTarget(osp.join(self.get_output_dir(),
-                                       'final.txt'))
+    def complete(self):
+        return pathlib.Path('../tests', self.get_exp_name(), 'final.txt').exists()
 
 def create_tasks():
     algo = ['ppo_lagrangian']
@@ -89,4 +86,5 @@ def create_tasks():
 
 if __name__ == "__main__":
     tasks = create_tasks()
-    luigi.build(tasks, scheduler_url="http://localhost:8082", workers=4)
+    luigi.build(tasks, local_scheduler=True, workers=1)
+    #luigi.build(tasks, scheduler_url="http://localhost:8082", workers=1)

@@ -51,7 +51,7 @@ def main(robot, task, algo, seed, exp_name, cpu, constraint, use_aug, dense_coef
 
     def env_fn():
         env = gym.make(env_name)
-        if constraint != 'none':
+        if constraint != None:
             if use_aug:
                 augmentation_type = 'constraint_state_concat'
             else:
@@ -73,7 +73,7 @@ def main(robot, task, algo, seed, exp_name, cpu, constraint, use_aug, dense_coef
          seed=seed,
          logger_kwargs=logger_kwargs
          )
-    (pathlib.Path('../data') / exp_name / 'final.txt').touch()
+    (pathlib.Path('../tests') / exp_name / 'final.txt').touch()
 
 
 
@@ -86,9 +86,9 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--exp_name', type=str, default='')
     parser.add_argument('--cpu', type=int, default=1)
-    parser.add_argument('--constraint', type=str)
+    parser.add_argument('--constraint', type=str, default=None)
     parser.add_argument('--use_aug', type=bool, default=False)
-    parser.add_argument('--dense_coeff', type=float)
+    parser.add_argument('--dense_coeff', type=float, default=0.)
     args = parser.parse_args()
     exp_name = args.exp_name if not(args.exp_name=='') else None
     main(args.robot, args.task, args.algo, args.seed, exp_name, args.cpu, args.constraint, args.use_aug, args.dense_coeff)
