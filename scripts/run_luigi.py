@@ -37,7 +37,7 @@ class TrainTask(luigi.Task):
             cmd_str += ' --use_aug ' + str(self.use_aug)
         cmd_str += ' --dense_coeff ' + str(self.dense_coefficient)
         cmd_str += ' --seed ' + str(self.seed)
-        cmd_str += ' --cpu 6'
+        cmd_str += ' --cpu 4'
         cmd_str += ' --exp_name ' + self.get_exp_name()
         print(cmd_str)
         output = subprocess.check_output(cmd_str.split(' '))
@@ -86,5 +86,5 @@ def create_tasks():
 
 if __name__ == "__main__":
     tasks = create_tasks()
-    luigi.build(tasks, local_scheduler=True, workers=1)
+    luigi.build(tasks, local_scheduler=True, workers=2)
     #luigi.build(tasks, scheduler_url="http://localhost:8082", workers=1)

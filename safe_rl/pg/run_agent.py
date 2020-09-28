@@ -378,10 +378,7 @@ def run_polopt_agent(env_fn,
 
             # Include penalty on cost
             c = info.get('cost', 0)
-            try:
-                cc = info.get('constraint_cost', 0)
-            except:
-                pass
+            cc = info.get('constraint_cost', 0)
 
             # Track cumulative cost over training
             cum_cost += c
@@ -405,10 +402,7 @@ def run_polopt_agent(env_fn,
             o = o2
             ep_ret += r
             ep_cost += c
-            try:
-                cep_cost += cc
-            except:
-                pass
+            cep_cost += cc
             ep_len += 1
 
             terminal = d or (ep_len == max_ep_len)
@@ -437,7 +431,7 @@ def run_polopt_agent(env_fn,
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
 
                 # Reset environment
-                o, r, d, c, ep_ret, ep_len, ep_cost = env.reset(), 0, False, 0, 0, 0, 0
+                o, r, d, c, ep_ret, ep_len, ep_cost, cep_cost = env.reset(), 0, False, 0, 0, 0, 0, 0
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs-1):
